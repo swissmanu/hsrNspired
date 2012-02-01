@@ -6,9 +6,21 @@ toolpalette.register({})
 toolpalette.enablePaste(true)
 
 -- Constants
-__fat16.STATE_WRONG_INPUT = -1
-__fat16.STATE_WELCOME     = 0
-__fat16.STATE_CALCULATED  = 1
+__fat16.TITLE					= 'FAT16 Entry Utility'
+__fat16.STATE_WRONG_INPUT		= -1
+__fat16.STATE_WELCOME    		= 0
+__fat16.STATE_CALCULATED  		= 1
+__fat16.TOTAL_BYTES_TO_PROCESS	= 32
+__fat16.FIELD_LENGTHS = {
+	8		-- Filename
+	,3		-- Extension
+	,1		-- Attribute
+	,10		-- Reserved
+	,2		-- Time last changed
+	,2		-- Date last changed
+	,2		-- First cluster
+	,4		-- Filesize in bytes
+}
 
 -- Namespace variables
 __fat16.state	= __fat16.STATE_WELCOME
@@ -210,23 +222,12 @@ end
 -- Processes a valid hex input string and returns the results as table with
 -- strings.
 function __fat16.processInput(input)
-	local entry_byte_length = 32
-	local field_lengths = {
-		8		-- Filename
-		,3		-- Extension
-		,1		-- Attribute
-		,10		-- Reserved
-		,2		-- Time last changed
-		,2		-- Date last changed
-		,2		-- First cluster
-		,4		-- Filesize in bytes
-	}
+	local field_offsets = __fat16.calculateFieldOffsets(__fat16.FIELD_LENGTHS)
+	local result = {}
 	
-	field_offsets = __fat16.calculateFieldOffsets(field_lengths)
-	result = {}
-	for i=1, table.getn(field_lengths) do
+	for i=1, table.getn(__fat16.FIELD_LENGTHS) do
 		offset = field_offsets[i]*2
-		length = field_lengths[i]*2
+		length = __fat16.FIELD_LENGTHS[i]*2
 		field_value = string.sub(input, offset+1, offset+length)
 
 		processed_value = __fat16.handleFieldValue(i, field_value)
@@ -242,7 +243,9 @@ end
 function __fat16.validateInput(input)
 	local valid = true
 	
-	if string.len(input) ~= 64 then valid = false end
+	if string.len(input) ~= __fat16.TOTAL_BYTES_TO_PROCESS*2 then
+		valid = false
+	end
 	
 	return valid
 end
@@ -256,7 +259,7 @@ function __fat16.drawMessage(title, text, r,g,b, gc)
 	if(title ~= '') then
 		gc:setFont('sansserif','r',12)
 		gc:drawString(title, 10,y, 'top')
-		y = y + 18
+		y = y + 23
 	end
 	gc:setFont('sansserif','r',10)
 	gc:drawString(text, 10,y, 'top')
@@ -298,7 +301,7 @@ function __fat16.main()
 	-- Renders the view
 	on.paint = function(gc)
 		if __fat16.state == __fat16.STATE_WELCOME then
-			__fat16.drawMessage('Welcome!','Paste a valid, 32 byte hex string.', 0,0,0,gc)
+			__fat16.drawMessage(__fat16.TITLE,'Paste a valid, 32 byte hex string to display\nall contained values.', 0,0,0,gc)
 		elseif __fat16.state == __fat16.STATE_CALCULATED then
 			__fat16.drawTable(__fat16.result, 0,0,0,gc)
 		elseif __fat16.state == __fat16.STATE_WRONG_INPUT then
