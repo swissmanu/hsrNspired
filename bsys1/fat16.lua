@@ -1,19 +1,28 @@
-
+__fat16 = {
+}
 
 FAT_ENTRY = ''
 toolpalette.register({})
 toolpalette.enablePaste(true)
 
+
+
+
+
+
+
+
+
 -- FUNCTIONS -------------------------------------------------------------
 
 -- Adds '0x' to a string, mostly a hex byte ;)
-function prefixHex(hex)
+function __fat16.prefixHex(hex)
 	if string.find(hex, '0x') == nil then hex = '0x'..hex end
 	return hex
 end
 
 -- Splits a String with hex bytes into an array, each entry with one byte
-function splitHexBytes(hex_input)
+function __fat16.splitHexBytes(hex_input)
 	local bytes = {}
 	for i=1, string.len(hex_input)/2, 1 do
 		bytes[i] = string.sub(hex_input,i*2-1,i*2)
@@ -22,7 +31,7 @@ function splitHexBytes(hex_input)
 end
 
 -- Reverses Hex bytes in a string
-function reverseHexString(hex_string)
+function __fat16.reverseHexString(hex_string)
 	local bytes = splitHexBytes(hex_string)
 	local reversed = ''
 	
@@ -34,7 +43,7 @@ function reverseHexString(hex_string)
 end
 
 -- Converts a string with hex bytes into its ascii representation
-function toAscii(hex_input)
+function __fat16.toAscii(hex_input)
 	local bytes = splitHexBytes(hex_input)
 	local text = ''
 	
@@ -47,7 +56,7 @@ end
 
 -- Converts a decimal number to a bit table. By passing ensure_length
 -- you can add 0's, if the converted table has not the expected size
-function toBits(num,ensure_length)
+function __fat16.toBits(num,ensure_length)
 	if ensure_length == nil then ensure_length = 0 end
 	
     local t={}
@@ -67,7 +76,7 @@ function toBits(num,ensure_length)
 end
 
 -- Converts a string with bits to a decimal number
-function bitStringToDec(bitString)
+function __fat16.bitStringToDec(bitString)
 	local value = 0
 	local bitString = string.reverse(bitString)
 	
@@ -82,7 +91,7 @@ end
 -- Takes a table with field lengths and calculates offset values which can
 -- be used to cut out specific fields from a source record.
 -- Offsets get returned in a table.
-function calculateFieldOffsets(field_lengths)
+function __fat16.calculateFieldOffsets(field_lengths)
 	local prev_offset = 0
 	local field_offsets = {}
 	
@@ -101,15 +110,15 @@ end
 
 
 -- OUTPUT CONVERTERS -----------------------------------------------------
-function convertFilename(hex)
+function __fat16.convertFilename(hex)
 	return toAscii(hex)
 end
 
-function convertExtension(hex)
+function __fat16.convertExtension(hex)
 	return toAscii(hex)
 end
 
-function convertAttribute(hex)
+function __fat16.convertAttribute(hex)
 	local hex = prefixHex(hex)
 	local bits = toBits(tonumber(hex))
 	local attributes = ''
@@ -130,7 +139,7 @@ function convertAttribute(hex)
 	return attributes
 end
 
-function convertTime(hex)
+function __fat16.convertTime(hex)
 	local hex = reverseHexString(hex)
 	local bits = toBits(tonumber(prefixHex(hex)),16)
 	local hourBits = ''
@@ -150,7 +159,7 @@ function convertTime(hex)
 	return time
 end
 
-function convertDate(hex)
+function __fat16.convertDate(hex)
 	local hex = reverseHexString(hex)
 	local bits = toBits(tonumber(prefixHex(hex)),16)
 	local dayBits = ''
@@ -170,18 +179,18 @@ function convertDate(hex)
 	return date
 end
 
-function convertCluster(hex)
+function __fat16.convertCluster(hex)
 	local reversed = prefixHex(reverseHexString(hex))
 	return reversed..', '..tonumber(reversed)
 end
 
-function convertFilesize(hex)
+function __fat16.convertFilesize(hex)
 	local reversed = prefixHex(reverseHexString(hex))
 	return reversed..', '..tonumber(reversed).. 'byte'
 end
 
 -- HANDLERS --------------------------------------------------------------
-function handleFieldValue(index, value)
+function __fat16.handleFieldValue(index, value)
 	if index	 == 1 then 	return 'Filename: '..convertFilename(value)
 	elseif index == 2 then	return 'Extension: '..convertExtension(value)
 	elseif index == 3 then	return 'Attribute: '..convertAttribute(value)
@@ -195,58 +204,64 @@ function handleFieldValue(index, value)
 	return ""
 end
 
-function on.paste()
-	FAT_ENTRY = clipboard.getText()
-	platform.window:invalidate()
-end
 
-function drawOutput(gc, input)
-	gc:setFont('sansserif','r',10)
+function __fat16.main()
 	
-	-- FAT16 Entry Definition:
-	local entry_byte_length = 32
-	local field_lengths = {
-		8		-- Filename
-		,3		-- Extension
-		,1		-- Attribute
-		,10		-- Reserved
-		,2		-- Time last changed
-		,2		-- Date last changed
-		,2		-- First cluster
-		,4		-- Filesize in bytes
-	}
+	on.paste = function()
+		FAT_ENTRY = clipboard.getText()
+		platform.window:invalidate()
+	end
 
-	--======================================================================--
-	-- MAIN
-	--======================================================================--
-	--input = '47494D504F52542048202020184DF8A9383E383E0000D18C683C0400AD200000'
-	if string.len(input) ~= entry_byte_length*2 then
-		gc:setColorRGB(255,0,0)
-		gc:drawString("Please paste a value with "..entry_byte_length.." hex bytes!",10,10,"top")
-	else
-		-- CALCULATE FIELD OFFSETS -----------------------------------------------
-		field_offsets = calculateFieldOffsets(field_lengths)
+	function drawOutput(gc, input)
+		gc:setFont('sansserif','r',10)
+	
+		-- FAT16 Entry Definition:
+		local entry_byte_length = 32
+		local field_lengths = {
+			8		-- Filename
+			,3		-- Extension
+			,1		-- Attribute
+			,10		-- Reserved
+			,2		-- Time last changed
+			,2		-- Date last changed
+			,2		-- First cluster
+			,4		-- Filesize in bytes
+		}
 
-		-- PROCESS FIELDS --------------------------------------------------------
-		for i=1, table.getn(field_lengths) do
-			offset = field_offsets[i]*2
-			length = field_lengths[i]*2
-			field_value = string.sub(input, offset+1, offset+length)
+		--======================================================================--
+		-- MAIN
+		--======================================================================--
+		--input = '47494D504F52542048202020184DF8A9383E383E0000D18C683C0400AD200000'
+		if string.len(input) ~= entry_byte_length*2 then
+			gc:setColorRGB(255,0,0)
+			gc:drawString("Please paste a value with "..entry_byte_length.." hex bytes!",10,10,"top")
+		else
+			-- CALCULATE FIELD OFFSETS -----------------------------------------------
+			field_offsets = calculateFieldOffsets(field_lengths)
 
-			processed_value = handleFieldValue(i, field_value)
-			if processed_value ~= "" then
-				gc:drawString(processed_value,10,10+18*(i-1),"top")
+			-- PROCESS FIELDS --------------------------------------------------------
+			for i=1, table.getn(field_lengths) do
+				offset = field_offsets[i]*2
+				length = field_lengths[i]*2
+				field_value = string.sub(input, offset+1, offset+length)
+
+				processed_value = handleFieldValue(i, field_value)
+				if processed_value ~= "" then
+					gc:drawString(processed_value,10,10+18*(i-1),"top")
+				end
 			end
+		end
+	end
+
+	function on.paint(gc)
+		if FAT_ENTRY ~= '' then
+			drawOutput(gc, FAT_ENTRY)
+		else
+			gc:setFont('sansserif','r',10)
+			gc:setColorRGB(255,0,0)
+			gc:drawString("Please copy/paste 32 hex bytes", 10,10, "top")
 		end
 	end
 end
 
-function on.paint(gc)
-	if FAT_ENTRY ~= '' then
-		drawOutput(gc, FAT_ENTRY)
-	else
-		gc:setFont('sansserif','r',10)
-		gc:setColorRGB(255,0,0)
-		gc:drawString("Please copy/paste 32 hex bytes", 10,10, "top")
-	end
-end
+__fat16.main()
