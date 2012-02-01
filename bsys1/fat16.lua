@@ -1,9 +1,20 @@
+-- Global namespace
 __fat16 = {}
 
+-- Toolpalette
 toolpalette.register({})
 toolpalette.enablePaste(true)
 
-__fat16.input_hex_value = ''
+-- Constants
+__fat16.STATE_WRONG_INPUT = -1
+__fat16.STATE_WELCOME     = 0
+__fat16.STATE_CALCULATED  = 1
+
+-- Namespace variables
+__fat16.state	= __fat16.STATE_WELCOME
+__fat16.result	= {}
+
+
 
 -- FUNCTIONS -------------------------------------------------------------
 
@@ -101,7 +112,7 @@ function __fat16.calculateFieldOffsets(field_lengths)
 end
 
 
--- OUTPUT CONVERTERS -----------------------------------------------------
+
 function __fat16.convertFilename(hex)
 	return __fat16.toAscii(hex)
 end
@@ -180,7 +191,8 @@ function __fat16.convertFilesize(hex)
 	return reversed..', '..tonumber(reversed).. 'byte'
 end
 
--- HANDLERS --------------------------------------------------------------
+
+
 function __fat16.handleFieldValue(index, value)
 	if index	 == 1 then 	return 'Filename: '..__fat16.convertFilename(value)
 	elseif index == 2 then	return 'Extension: '..__fat16.convertExtension(value)
@@ -195,10 +207,9 @@ function __fat16.handleFieldValue(index, value)
 	return ""
 end
 
-function __fat16.drawOutput(gc, input)
-	gc:setFont('sansserif','r',10)
-
-	-- FAT16 Entry Definition:
+-- Processes a valid hex input string and returns the results as table with
+-- strings.
+function __fat16.processInput(input)
 	local entry_byte_length = 32
 	local field_lengths = {
 		8		-- Filename
@@ -210,49 +221,92 @@ function __fat16.drawOutput(gc, input)
 		,2		-- First cluster
 		,4		-- Filesize in bytes
 	}
+	
+	field_offsets = __fat16.calculateFieldOffsets(field_lengths)
+	result = {}
+	for i=1, table.getn(field_lengths) do
+		offset = field_offsets[i]*2
+		length = field_lengths[i]*2
+		field_value = string.sub(input, offset+1, offset+length)
 
-	--======================================================================--
-	-- MAIN
-	--======================================================================--
-	--input = '47494D504F52542048202020184DF8A9383E383E0000D18C683C0400AD200000'
-	if string.len(input) ~= entry_byte_length*2 then
-		gc:setColorRGB(255,0,0)
-		gc:drawString("Please paste a value with "..entry_byte_length.." hex bytes!",10,10,"top")
-	else
-		-- CALCULATE FIELD OFFSETS -----------------------------------------------
-		field_offsets = __fat16.calculateFieldOffsets(field_lengths)
-
-		-- PROCESS FIELDS --------------------------------------------------------
-		for i=1, table.getn(field_lengths) do
-			offset = field_offsets[i]*2
-			length = field_lengths[i]*2
-			field_value = string.sub(input, offset+1, offset+length)
-
-			processed_value = __fat16.handleFieldValue(i, field_value)
-			if processed_value ~= "" then
-				gc:drawString(processed_value,10,10+18*(i-1),"top")
-			end
+		processed_value = __fat16.handleFieldValue(i, field_value)
+		if processed_value ~= "" then
+			result[i] = processed_value
 		end
+	end
+	
+	return result
+end
+
+-- Checks an input value if it is valid and returns the result as boolean.
+function __fat16.validateInput(input)
+	local valid = true
+	
+	if string.len(input) ~= 64 then valid = false end
+	
+	return valid
+end
+
+-- Draws a message. You can pass a title which gets drawn bigger, but this
+-- is optional (pass '' if you dont need a title)
+function __fat16.drawMessage(title, text, r,g,b, gc)
+	local y = 10
+	gc:setColorRGB(r,g,b)
+	
+	if(title ~= '') then
+		gc:setFont('sansserif','r',12)
+		gc:drawString(title, 10,y, 'top')
+		y = y + 18
+	end
+	gc:setFont('sansserif','r',10)
+	gc:drawString(text, 10,y, 'top')
+end
+
+-- Draws each item of a table on its own line.
+function __fat16.drawTable(tab, r,g,b, gc)
+	gc:setFont('sansserif','r',10)
+	gc:setColorRGB(r,g,b)
+	for i=1, table.getn(tab) do
+		local line = tab[i]
+		if line ~= nil then gc:drawString(tab[i], 10,10+17*(i-1), 'top') end
 	end
 end
 
 
+
+
+
+-- Setup the event handlers
 function __fat16.main()
-	
+	-- Picks the pasted value from clipboard and validates it.
+	-- If valid, the value gets processed and the state changes to STATE_CALCULATED.
+	-- Otherwise to STATE_WRONG_INPUT.
+	-- After all, a new rendering of the view is triggered.
 	on.paste = function()
-		__fat16.input_hex_value = clipboard.getText()
+		local input = clipboard.getText()
+		
+		if __fat16.validateInput(input) then
+			__fat16.result = __fat16.processInput(input)
+			__fat16.state = __fat16.STATE_CALCULATED
+		else
+			__fat16.state = __fat16.STATE_WRONG_INPUT
+		end
+		
 		platform.window:invalidate()
 	end
 
+	-- Renders the view
 	on.paint = function(gc)
-		if __fat16.input_hex_value ~= '' then
-			__fat16.drawOutput(gc, __fat16.input_hex_value)
-		else
-			gc:setFont('sansserif','r',10)
-			gc:setColorRGB(255,0,0)
-			gc:drawString("Please copy/paste 32 hex bytes", 10,10, "top")
+		if __fat16.state == __fat16.STATE_WELCOME then
+			__fat16.drawMessage('Welcome!','Paste a valid, 32 byte hex string.', 0,0,0,gc)
+		elseif __fat16.state == __fat16.STATE_CALCULATED then
+			__fat16.drawTable(__fat16.result, 0,0,0,gc)
+		elseif __fat16.state == __fat16.STATE_WRONG_INPUT then
+			__fat16.drawMessage('Invalid input!','Please paste a valid, 32 byte hex value.', 255,0,0,gc)
 		end
 	end
 end
 
+
+-- Start
 __fat16.main()
