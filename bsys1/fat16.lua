@@ -241,13 +241,9 @@ end
 
 -- Checks an input value if it is valid and returns the result as boolean.
 function __fat16.validateInput(input)
-	local valid = true
-	
-	if string.len(input) ~= __fat16.TOTAL_BYTES_TO_PROCESS*2 then
-		valid = false
-	end
-	
-	return valid
+	if input == nil then return false end
+	if string.len(input) ~= __fat16.TOTAL_BYTES_TO_PROCESS*2 then return false end
+	return true
 end
 
 -- Draws a message. You can pass a title which gets drawn bigger, but this
