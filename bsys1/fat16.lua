@@ -301,7 +301,7 @@ function __fat16.main()
 	-- Renders the view
 	on.paint = function(gc)
 		if __fat16.state == __fat16.STATE_WELCOME then
-			__fat16.drawMessage(__fat16.TITLE,'Paste a valid, 32 byte hex string to display\nall contained values.', 0,0,0,gc)
+			__fat16.drawMessage(__fat16.TITLE,'Paste a valid, 32 byte hex string.', 0,0,0,gc)
 		elseif __fat16.state == __fat16.STATE_CALCULATED then
 			__fat16.drawTable(__fat16.result, 0,0,0,gc)
 		elseif __fat16.state == __fat16.STATE_WRONG_INPUT then
