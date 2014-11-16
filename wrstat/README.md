@@ -3,6 +3,8 @@
 ## google.tns
 Calculate Google Page Ranks for given link matrix.
 
+![Google Page Rank](google.jpg)
+
 This is not a LUA program. Installation is simple:
 
 * Transfer the `google.tns` file to your `MyLib` folder on your TI-nspire CX
