@@ -12,6 +12,6 @@ This is not a LUA program. Installation is simple:
 ### google/pagerank(H)
 * `H` quadratic link matrix
 
-### google/pagerank(H,alpha)
+### google/pagerank_free(H,alpha)
 * `H` quadratic link matrix
 * `alpha` "free will" factor
