@@ -9,9 +9,9 @@ This is not a LUA program. Installation is simple:
 * Reload the libraries from the documents menu (button `doc`)
 * You can access following functions using the library menu (the small book button located below the `del` button) now:
 
-### google/pagerank(H)
+### `google\pagerank(H)`
 * `H` quadratic link matrix
 
-### google/pagerank_free(H,alpha)
+### `google\pagerank_free(H,alpha)`
 * `H` quadratic link matrix
 * `alpha` "free will" factor
